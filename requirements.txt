@@ -1,0 +1,28 @@
+# Verified working set (Python 3.12). Pinned to the exact versions the bot was
+# tested against — see documentation.md.
+#
+# REQUIRES PYTHON >= 3.12: polymarket-apis declares Requires-Python >=3.12, so on
+# 3.11 pip reports "from versions: none" and the install fails. The Dockerfile uses
+# python:3.12-slim for this reason.
+#
+# httpx and websockets must stay >= these floors: polymarket-apis requires
+# httpx[http2,socks]>=0.28.1 and websockets>=15.0.1. The old pins (0.27.0 / 12.0)
+# conflicted with it outright.
+
+fastapi==0.115.0
+uvicorn==0.32.0
+httpx==0.28.1
+websockets==15.0.1
+aiohttp==3.13.5
+web3==7.16.0
+ta==0.11.0
+pandas==3.0.3
+numpy==2.2.6
+pydantic==2.11.4
+pydantic-settings==2.13.1
+python-dotenv==1.0.1
+jinja2==3.1.4
+aiofiles==25.1.0
+gunicorn==23.0.0
+polymarket-apis==2.3.0
+eth-account==0.13.7

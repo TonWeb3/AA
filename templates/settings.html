@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Settings - Polymarket Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4 sm:p-8" x-data="settingsPage()" x-cloak>
+    <div class="max-w-4xl mx-auto">
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 text-center sm:text-left">
+            <div class="flex items-center gap-2 sm:gap-3 justify-center sm:justify-start">
+                <h1 class="text-2xl sm:text-3xl font-bold text-blue-400">Application Settings</h1>
+                <span class="bg-indigo-900/80 text-indigo-300 border border-indigo-500/50 px-2 sm:px-2.5 py-0.5 rounded font-mono text-xs font-black tracking-wider">LIVE/FAK</span>
+            </div>
+            <a href="/" class="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded font-bold transition text-center">Back to Dashboard</a>
+        </header>
+
+        <form @submit.prevent="saveSettings" class="space-y-6 sm:space-y-8">
+            <!-- Mode & Balance -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Trading Mode</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Mode</label>
+                        <select x-model="form.mode" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="paper">Paper Trading</option>
+                            <option value="live">Live Trading</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Initial Balance (USD)</label>
+                        <input type="number" x-model.number="form.paper_balance_usd" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Paper trading balance. In live mode, balance is automatically read from your funded Polymarket wallet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Management -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Risk Management</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Risk Type</label>
+                        <select x-model="form.trading.risk_type" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="fixed">Fixed Amount ($)</option>
+                            <option value="percent">Percentage of Balance (%)</option>
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Fixed = flat $ per trade. Percent = % of balance.</p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Risk Value</label>
+                        <input type="number" step="0.01" x-model.number="form.trading.risk_value" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Markets -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Market Configuration</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Binance Symbol</label>
+                        <input type="text" x-model="form.trading.symbol" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition" placeholder="BTCUSDT">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Polymarket Series</label>
+                        <select x-model="form.polymarket.series_id" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                            <template x-for="s in availableSeries" :key="s.series_id">
+                                <option :value="s.series_id" x-text="s.title" :selected="s.series_id == form.polymarket.series_id"></option>
+                            </template>
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-2 italic" x-show="!availableSeries.length">No series found or loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy Controls -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Strategy Controls</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-4">
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">EV Threshold</label>
+                        <input type="number" step="0.01" min="0" max="0.5" x-model.number="form.ev.ev_threshold" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Enter only when fair prob − share price ≥ this (e.g. 0.04 = a 4¢ edge).</p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Min Probability</label>
+                        <input type="number" step="0.01" min="0.5" max="0.99" x-model.number="form.ev.min_prob" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Don't bet near-coinflips even if EV looks positive (e.g. 0.55).</p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Min Seconds Left</label>
+                        <input type="number" step="1" min="0" max="600" x-model.number="form.ev.min_seconds_left" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Stop entering this close to expiry (e.g. 30s) to avoid illiquid closing books.</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                    <label class="flex items-center gap-2 mb-3">
+                        <input type="checkbox" x-model="form.flip.enabled" class="w-4 h-4">
+                        <span class="text-sm font-bold text-blue-400 uppercase">Close &amp; Flip on Strong Opposite Signal</span>
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1 uppercase">Min Conviction (opposite)</label>
+                            <input type="number" step="0.01" min="0.5" max="1" x-model.number="form.flip.min_conviction" class="w-full bg-gray-700 border-none rounded p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1 uppercase">Min Minutes Left</label>
+                            <input type="number" step="0.5" min="0" x-model.number="form.flip.min_minutes_left" class="w-full bg-gray-700 border-none rounded p-2 text-xs text-white">
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-2 italic">When on, an open position is sold and reversed if the opposite side clears the conviction and time thresholds.</p>
+                </div>
+            </div>
+
+            <!-- Auto-withdrawal (capital extractor) -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Auto-Withdrawal (Capital Extractor)</h2>
+                <label class="flex items-center gap-2 mb-4">
+                    <input type="checkbox" x-model="form.capital_extractor.enabled" class="w-4 h-4">
+                    <span class="text-sm font-bold text-emerald-400 uppercase">Enable auto-withdrawal</span>
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6" :class="form.capital_extractor.enabled ? '' : 'opacity-50 pointer-events-none'">
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Trigger Balance ($)</label>
+                        <input type="number" step="1" min="0" x-model.number="form.capital_extractor.trigger_balance" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Withdraw once <strong>equity</strong> (cash + any open position) reaches this (e.g. 2000).</p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Withdraw Amount ($)</label>
+                        <input type="number" step="1" min="0" x-model.number="form.capital_extractor.withdraw_amount" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Amount of pUSD to withdraw each time (e.g. 1000 = half of 2000).</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Withdraw To (destination address)</label>
+                        <input type="text" x-model="form.capital_extractor.withdraw_address" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition" placeholder="0x... wallet that receives the pUSD (blank = your own key/seed wallet)">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">The pUSD is sent here (gasless). Leave blank to send to <strong>your own wallet</strong> — the address your private key / seed controls. Double-check the address: withdrawals move real funds and cannot be undone.</p>
+                        <p x-show="!form.capital_extractor.withdraw_address" class="text-[10px] mt-1 font-mono"
+                           :class="form.capital_extractor.default_destination ? 'text-emerald-400' : 'text-amber-400'"
+                           x-text="form.capital_extractor.default_destination
+                                     ? ('Blank -> will send to your own wallet: ' + form.capital_extractor.default_destination)
+                                     : 'Blank -> your own wallet, but no private key is set yet, so the destination cannot be shown.'"></p>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2 mt-1">
+                            <input type="checkbox" x-model="form.capital_extractor.auto_resume_after_withdrawal" class="w-4 h-4">
+                            <span class="text-sm text-gray-300">Auto-resume trading after withdrawal</span>
+                        </label>
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Off = the bot stops entirely once the withdrawal is done.</p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Resume After</label>
+                        <select x-model="form.capital_extractor.resume_after" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="flat">Once position is flat (standard 30s)</option>
+                            <option value="next_window">Wait for next 15m market window</option>
+                            <option value="submitted">Transaction submitted (faster)</option>
+                            <option value="confirmed">Confirmed on-chain (safer)</option>
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-2 italic">"Confirmed" waits for the receipt, up to 3 minutes, before resuming.</p>
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-500 mt-3 italic"><strong>Live mode only.</strong> When equity ≥ trigger: pause new entries → sell any open position at the bid to go flat → withdraw the amount → resume at the next 15m market.</p>
+            </div>
+
+            <!-- Telegram alerts -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Telegram Alerts</h2>
+                <label class="flex items-center gap-2 mb-4">
+                    <input type="checkbox" x-model="form.telegram.enabled" class="w-4 h-4">
+                    <span class="text-sm font-bold text-sky-400 uppercase">Send Telegram alerts on withdrawal</span>
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Bot Token</label>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input type="password" x-model="form.telegram.bot_token" class="flex-1 bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition" placeholder="123456:ABC-DEF... (from @BotFather)">
+                            <button type="button" @click="testTelegram" :disabled="tgBusy"
+                                    class="bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-bold py-3 px-5 rounded-lg transition text-sm whitespace-nowrap">
+                                <span x-text="tgBusy ? 'Sending…' : 'Send Test'"></span>
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Create a bot with @BotFather on Telegram and paste its token here. A stored token is shown only as "set".</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-gray-400 text-xs sm:text-sm uppercase font-bold tracking-wider">Subscribers <span class="text-gray-500 normal-case font-normal" x-text="'(' + tgSubs.length + ')'"></span></label>
+                            <button type="button" @click="loadSubscribers" :disabled="tgSubsBusy"
+                                    class="bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-bold py-1.5 px-3 rounded-lg transition text-xs">
+                                <span x-text="tgSubsBusy ? 'Refreshing…' : 'Refresh'"></span>
+                            </button>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="s in tgSubs" :key="s.chat_id">
+                                <div class="flex items-center gap-2 bg-gray-700/60 rounded-lg p-2.5">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm text-white truncate" x-text="s.name || ('Chat ' + s.chat_id)"></p>
+                                        <p class="text-[10px] text-gray-400 font-mono" x-text="s.chat_id + (s.type ? ' · ' + s.type : '')"></p>
+                                    </div>
+                                    <button type="button" @click="removeSubscriber(s.chat_id)"
+                                            class="bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white font-bold w-9 h-9 rounded-lg transition shrink-0" title="Remove">✕</button>
+                                </div>
+                            </template>
+                            <p x-show="tgSubs.length === 0" class="text-xs text-gray-500 italic py-2">No subscribers yet. Anyone who sends a message to the bot on Telegram is added here automatically.</p>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-3 italic">Recipients subscribe <strong>themselves</strong> — no chat IDs to copy. Each person opens the bot on Telegram and sends <code>/start</code>; they're added above and receive every withdrawal alert.</p>
+                        <p class="text-[10px] text-gray-500 mt-1 italic">Users can leave anytime by sending <code>/stop</code> to the bot, or you can remove them here with ✕.</p>
+                        <p x-show="tgResult" x-transition class="text-xs mt-2 font-mono" :class="tgOk ? 'text-green-400' : 'text-red-400'" x-text="tgResult"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Secrets -->
+            <div class="bg-gray-800 p-5 sm:p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-gray-700 pb-2">Credentials & Live Trading</h2>
+                <div class="space-y-4 sm:space-y-6">
+                    <div>
+                        <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Private Key or Seed Phrase</label>
+                        <input type="password" x-model="form.private_key" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition font-mono text-sm" placeholder="0x...  or  twelve/twenty-four word seed phrase">
+                        <p class="text-[10px] text-gray-500 mt-2 italic">Your trading wallet is <strong>derived</strong> from this. It signs every order but holds no funds and needs no gas. A 12/24-word seed is converted to a hex key on save.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                        <div>
+                            <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Relayer API Key</label>
+                            <input type="password" x-model="form.live.relayer_api_key" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition font-mono text-sm" placeholder="sponsors gasless setup">
+                            <p class="text-[10px] text-gray-500 mt-2 italic">Pays the gas for wallet deploy + approvals. Only needed once, for a fresh deposit wallet.</p>
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Alchemy API Key <span class="text-gray-600">(optional)</span></label>
+                            <input type="password" x-model="form.live.alchemy_api_key" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition font-mono text-sm" placeholder="dedicated Polygon RPC">
+                            <p class="text-[10px] text-gray-500 mt-2 italic">A private RPC for chain reads. Blank uses the public default.</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                        <div>
+                            <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Max Slippage ($)</label>
+                            <input type="number" step="0.005" min="0.001" max="0.10" x-model.number="form.live.max_slippage" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition font-mono text-sm" placeholder="0.02">
+                            <p class="text-[10px] text-gray-500 mt-2 italic">Buffer above best ask for marketable orders (e.g. 0.02 = 2¢).</p>
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Entry Max Retries</label>
+                            <input type="number" step="1" min="1" max="20" x-model.number="form.live.entry_max_retries" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition font-mono text-sm" placeholder="6">
+                            <p class="text-[10px] text-gray-500 mt-2 italic">Number of retries when an order is killed/unfilled (e.g. 6 attempts).</p>
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs sm:text-sm mb-2 uppercase font-bold tracking-wider">Retry Delay (ms)</label>
+                            <input type="number" step="25" min="50" max="2000" x-model.number="form.live.entry_retry_delay_ms" class="w-full bg-gray-700 border-none rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 transition font-mono text-sm" placeholder="250">
+                            <p class="text-[10px] text-gray-500 mt-2 italic">Delay between retries. 250ms prevents hitting Polymarket's 10 req/s rate limit.</p>
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-gray-900/50 border border-gray-700">
+                        <p class="text-[11px] text-gray-400 leading-relaxed">
+                            <strong class="text-blue-400 uppercase">CLOB V2 — deposit wallet.</strong>
+                            Funds live as <strong>pUSD</strong> in a deposit wallet derived from your key; deposit
+                            through Polymarket. There is no signature type or funder address to choose —
+                            the bot checks the deposit, proxy and safe wallets and trades from whichever
+                            actually holds pUSD. Live mode places real Fill-And-Kill (FAK) orders.
+                        </p>
+                    </div>
+                    <div class="pt-2 flex flex-col sm:flex-row gap-3">
+                        <button type="button" @click="testConnection" :disabled="walletBusy"
+                                class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-2.5 px-6 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                            <svg x-show="walletBusy === 'test'" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span x-text="walletBusy === 'test' ? 'Checking…' : 'Test Connection'"></span>
+                        </button>
+                        <button type="button" @click="setupWallet" :disabled="walletBusy"
+                                class="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold py-2.5 px-6 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                            <svg x-show="walletBusy === 'setup'" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span x-text="walletBusy === 'setup' ? 'Setting up… (~30s)' : 'Setup Wallet (gasless)'"></span>
+                        </button>
+                        <button type="button" @click="enableAutoRedeem" :disabled="walletBusy"
+                                class="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold py-2.5 px-6 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                            <svg x-show="walletBusy === 'redeem'" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span x-text="walletBusy === 'redeem' ? 'Enabling…' : 'Enable Auto-Redeem'"></span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-500 italic">Save your key first. <strong>Test Connection</strong> is read-only and shows every derived wallet with its pUSD balance. <strong>Setup Wallet</strong> deploys + approves the deposit wallet (needs the relayer key). <strong>Auto-Redeem</strong> makes winning positions turn back into pUSD automatically.</p>
+
+                    <!-- Once a check has run, offer it again without re-querying the chain -->
+                    <p x-show="eoa || wallets.length" class="text-[10px] text-gray-500">
+                        <button type="button" @click="walletModal = true" class="text-blue-400 hover:text-blue-300 underline font-bold">
+                            View wallet addresses
+                        </button>
+                        <span class="text-gray-600" x-text="wallets.length ? (' — ' + wallets.length + ' derived') : ''"></span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-center sm:justify-end">
+                <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black py-4 px-12 rounded-xl shadow-xl transition transform active:scale-95 duration-200">
+                    SAVE CHANGES
+                </button>
+            </div>
+        </form>
+
+        <div x-show="message" x-transition x-text="message" class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md p-4 rounded-lg text-center font-bold shadow-2xl z-50"
+             :class="messageType === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'"></div>
+
+        <!-- ── Wallet popup modal ──────────────────────────────────────────────── -->
+        <div x-show="walletModal" x-transition.opacity @keydown.escape.window="walletModal = false"
+             class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto bg-black/70"
+             role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title">
+            <div class="absolute inset-0" @click="walletModal = false"></div>
+
+            <div class="relative bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-xl my-8 z-10">
+                <div class="flex items-center justify-between p-5 border-b border-gray-700">
+                    <h3 id="wallet-modal-title" class="text-lg font-bold text-white">Your Wallets</h3>
+                    <button type="button" @click="walletModal = false"
+                            class="text-gray-400 hover:text-white w-8 h-8 rounded-lg hover:bg-gray-700 transition text-xl leading-none">&times;</button>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <!-- Loading -->
+                    <div x-show="walletBusy === 'test'" class="py-8 text-center text-gray-400 text-sm">
+                        Deriving wallets and reading pUSD balances…
+                    </div>
+
+                    <template x-if="walletBusy !== 'test'">
+                        <div class="space-y-4">
+                            <!-- Error -->
+                            <div x-show="walletError" class="p-3 rounded-lg bg-red-900/40 border border-red-700">
+                                <p class="text-xs font-bold text-red-300 uppercase tracking-wider mb-1">Connection problem</p>
+                                <p class="text-xs text-red-200 font-mono break-all" x-text="walletError"></p>
+                            </div>
+
+                            <!-- Signing key -->
+                            <div x-show="eoa">
+                                <p class="text-[10px] uppercase font-bold tracking-wider text-gray-400 mb-1">
+                                    Signer (your key/seed) — holds no funds, needs no gas
+                                </p>
+                                <div class="flex items-center gap-2 bg-gray-900 rounded-lg p-3">
+                                    <span class="flex-1 font-mono text-xs text-gray-200 break-all" x-text="eoa"></span>
+                                    <button type="button" @click="copyAddr(eoa)"
+                                            class="shrink-0 bg-gray-700 hover:bg-blue-600 text-white text-[10px] font-bold uppercase px-3 py-2 rounded transition"
+                                            x-text="copied === eoa ? 'Copied' : 'Copy'"></button>
+                                </div>
+                                <p class="text-[10px] text-gray-500 mt-1 italic">A blank auto-withdrawal address sends here.</p>
+                            </div>
+
+                            <!-- Derived trading wallets -->
+                            <div x-show="wallets.length">
+                                <p class="text-[10px] uppercase font-bold tracking-wider text-gray-400 mb-1">Derived trading wallets</p>
+                                <div class="space-y-2">
+                                    <template x-for="w in wallets" :key="w.address">
+                                        <div class="rounded-lg p-3 border"
+                                             :class="w.address === chosenFunder ? 'bg-emerald-900/25 border-emerald-600' : 'bg-gray-900 border-gray-700'">
+                                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                                <span class="text-xs font-bold"
+                                                      :class="w.address === chosenFunder ? 'text-emerald-400' : 'text-gray-300'"
+                                                      x-text="(w.address === chosenFunder ? '✓ ' : '') + labelFor(w.signature_type)"></span>
+                                                <span class="text-xs font-mono font-bold"
+                                                      :class="w.pusd_balance > 0 ? 'text-emerald-400' : 'text-gray-500'"
+                                                      x-text="w.pusd_balance == null ? 'balance ?' : ('$' + Number(w.pusd_balance).toFixed(2) + ' pUSD')"></span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="flex-1 font-mono text-xs text-gray-300 break-all" x-text="w.address"></span>
+                                                <button type="button" @click="copyAddr(w.address)"
+                                                        class="shrink-0 bg-gray-700 hover:bg-blue-600 text-white text-[10px] font-bold uppercase px-3 py-2 rounded transition"
+                                                        x-text="copied === w.address ? 'Copied' : 'Copy'"></button>
+                                            </div>
+                                            <p x-show="w.address === chosenFunder"
+                                               class="text-[10px] text-emerald-300 mt-1.5 font-bold">
+                                                Orders trade from this wallet — deposit pUSD here.
+                                            </p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div x-show="wallets.length" class="text-[10px] text-gray-500 italic space-y-1 pt-1">
+                                <p>The ticked wallet is whichever one actually holds pUSD. If all read $0 the deposit wallet is used.</p>
+                                <p x-show="!relayerKeySet" class="text-amber-400 not-italic">
+                                    No relayer API key set — a brand-new deposit wallet cannot run its one-time gasless setup without one.
+                                </p>
+                            </div>
+
+                            <div x-show="!eoa && !wallets.length && !walletError" class="py-6 text-center text-gray-500 text-sm">
+                                No wallet information yet. Save a private key or seed phrase, then click Test Connection.
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="flex justify-end gap-2 p-5 border-t border-gray-700">
+                    <button type="button" @click="testConnection()" :disabled="walletBusy"
+                            class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-2 px-5 rounded-lg transition text-sm">
+                        <span x-text="walletBusy === 'test' ? 'Checking…' : 'Re-check'"></span>
+                    </button>
+                    <button type="button" @click="walletModal = false"
+                            class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg transition text-sm">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function settingsPage() {
+            return {
+                form: {
+                    mode: 'paper',
+                    paper_balance_usd: 1000,
+                    private_key: '',
+                    polymarket: { series_id: '' },
+                    trading: { symbol: '', risk_type: 'percent', risk_value: 10 },
+                    ev: { ev_threshold: 0.04, min_prob: 0.55, min_book_liquidity_usd: 20.0, min_seconds_left: 30 },
+                    live: { relayer_api_key: '', alchemy_api_key: '', max_slippage: 0.02, entry_max_retries: 6, entry_retry_delay_ms: 250, exit_max_retries: 3 },
+                    flip: { enabled: false, min_conviction: 0.80, min_minutes_left: 9.0 },
+                    capital_extractor: { enabled: false, trigger_balance: 2000, withdraw_amount: 1000, withdraw_address: '', auto_resume_after_withdrawal: true, resume_after: 'submitted', default_destination: '' },
+                    telegram: { enabled: false, bot_token: '' }
+                },
+                message: '',
+                messageType: '',
+                availableSeries: [],
+                walletBusy: '',
+                wallets: [],
+                eoa: '',
+                chosenFunder: '',
+                walletModal: false,
+                walletError: '',
+                relayerKeySet: false,
+                copied: '',
+                tgBusy: false,
+                tgSubs: [],
+                tgSubsBusy: false,
+                tgResult: '',
+                tgOk: false,
+                async init() {
+                    try {
+                        const [res, sRes] = await Promise.all([
+                            fetch('/api/settings').then(r => r.json()),
+                            fetch('/api/available-series').then(r => r.json())
+                        ]);
+                        for (const k of ['polymarket', 'trading', 'ev', 'live', 'flip',
+                                         'capital_extractor', 'telegram']) {
+                            res[k] = Object.assign({}, this.form[k], res[k] || {});
+                        }
+                        this.form = res;
+                        this.availableSeries = sRes;
+                    } catch (e) {
+                        console.error("Failed to load settings", e);
+                    }
+                    this.loadSubscribers();
+                },
+                async loadSubscribers() {
+                    this.tgSubsBusy = true;
+                    try {
+                        const res = await fetch('/api/telegram-subscribers');
+                        this.tgSubs = (await res.json()).subscribers || [];
+                    } catch (e) { this.tgSubs = []; }
+                    this.tgSubsBusy = false;
+                },
+                async removeSubscriber(chatId) {
+                    try {
+                        await fetch('/api/telegram-unsubscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: chatId })
+                        });
+                    } catch (e) { }
+                    this.loadSubscribers();
+                },
+                async testTelegram() {
+                    this.tgBusy = true; this.tgResult = '';
+                    try {
+                        const res = await fetch('/api/test-telegram', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bot_token: this.form.telegram.bot_token })
+                        });
+                        const data = await res.json();
+                        this.tgOk = !!data.ok;
+                        this.tgResult = data.message || (data.ok
+                            ? `Test alert sent to ${data.count} subscriber(s).`
+                            : `Failed: ${data.error || 'unknown'}`);
+                    } catch (e) {
+                        this.tgOk = false;
+                        this.tgResult = 'Test request failed.';
+                    }
+                    this.tgBusy = false;
+                    setTimeout(() => this.tgResult = '', 10000);
+                },
+                async saveSettings() {
+                    try {
+                        const res = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.form)
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.status !== 'error') {
+                            this.message = "Settings Saved Successfully!";
+                            this.messageType = 'success';
+                            setTimeout(() => this.message = '', 3000);
+                        } else {
+                            throw new Error(data.error || "Failed to save");
+                        }
+                    } catch (e) {
+                        this.message = e.message || "Error Saving Settings";
+                        this.messageType = 'error';
+                        setTimeout(() => this.message = '', 3000);
+                    }
+                },
+                labelFor(t) {
+                    return t === 3 ? 'Deposit (V2)' : (t === 1 ? 'Poly proxy' : (t === 2 ? 'Safe proxy' : 'Wallet ' + t));
+                },
+                async testConnection() {
+                    this.walletBusy = 'test';
+                    this.walletModal = true;
+                    this.walletError = '';
+                    this.copied = '';
+                    try {
+                        const data = await (await fetch('/api/test-connection', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                private_key: this.form.private_key,
+                                relayer_api_key: this.form.live ? this.form.live.relayer_api_key : '',
+                                alchemy_api_key: this.form.live ? this.form.live.alchemy_api_key : ''
+                            })
+                        })).json();
+                        this.eoa = data.eoa || '';
+                        this.relayerKeySet = !!data.relayer_key_set;
+                        if (data.ok) {
+                            this.wallets = data.wallets || [];
+                            this.chosenFunder = data.funder || '';
+                            this.flash("Connected. Trading from " + this.labelFor(data.chosen_signature_type)
+                                + (data.relayer_key_set ? "" : " (no relayer key set)"), 'success');
+                        } else {
+                            this.wallets = [];
+                            this.chosenFunder = '';
+                            this.walletError = data.error || 'unknown error';
+                            this.flash("Connection failed: " + this.walletError, 'error');
+                        }
+                    } catch (e) {
+                        this.walletError = 'The request to the bot failed — is it still running?';
+                        this.flash("Connection request failed", 'error');
+                    }
+                    this.walletBusy = '';
+                },
+                async copyAddr(addr) {
+                    if (!addr) return;
+                    try {
+                        await navigator.clipboard.writeText(addr);
+                    } catch (e) {
+                        const el = document.createElement('input');
+                        el.value = addr;
+                        document.body.appendChild(el);
+                        el.select();
+                        try { document.execCommand('copy'); } catch (e2) { }
+                        document.body.removeChild(el);
+                    }
+                    this.copied = addr;
+                    setTimeout(() => { if (this.copied === addr) this.copied = ''; }, 2000);
+                },
+                async setupWallet() {
+                    this.walletBusy = 'setup';
+                    this.flash("Setting up the deposit wallet on-chain… (~30s)", 'success');
+                    try {
+                        const data = await (await fetch('/api/setup-wallet', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                private_key: this.form.private_key,
+                                relayer_api_key: this.form.live ? this.form.live.relayer_api_key : ''
+                            })
+                        })).json();
+                        if (data.ok) {
+                            this.flash(data.skipped ? "Already set up this session."
+                                : ("Wallet ready (" + (data.approvals || 0) + " approvals)."), 'success');
+                        } else {
+                            this.flash("Setup failed: " + (data.error === 'missing_relayer_api_key'
+                                ? 'no relayer API key set' : (data.error || 'unknown')), 'error');
+                        }
+                    } catch (e) {
+                        this.flash("Setup request failed", 'error');
+                    }
+                    this.walletBusy = '';
+                },
+                async enableAutoRedeem() {
+                    this.walletBusy = 'redeem';
+                    try {
+                        const data = await (await fetch('/api/enable-auto-redeem', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                private_key: this.form.private_key
+                            })
+                        })).json();
+                        this.flash(data.ok ? "Auto-redeem enabled."
+                            : ("Auto-redeem failed: " + (data.error || 'unknown')), data.ok ? 'success' : 'error');
+                    } catch (e) {
+                        this.flash("Auto-redeem request failed", 'error');
+                    }
+                    this.walletBusy = '';
+                },
+                flash(msg, type) {
+                    this.message = msg;
+                    this.messageType = type;
+                    setTimeout(() => this.message = '', 6000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

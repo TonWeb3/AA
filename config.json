@@ -1,0 +1,72 @@
+{
+  "mode": "paper",
+  "paper_balance_usd": 1000.0,
+  "private_key": "",
+  "live": {
+    "max_slippage": 0.02,
+    "entry_max_retries": 6,
+    "entry_retry_delay_ms": 250,
+    "exit_max_retries": 3
+  },
+  "relayer": {
+    "api_key": ""
+  },
+  "capital_extractor": {
+    "enabled": false,
+    "trigger_balance": 76000,
+    "withdraw_amount": 75000,
+    "withdraw_address": "",
+    "auto_resume_after_withdrawal": true,
+    "resume_after": "submitted"
+  },
+  "telegram": {
+    "enabled": true,
+    "bot_token": "8394214124:AAGQs5vsfU3EustebtWTwtVk4ZgDcCeR-to"
+  },
+  "polymarket": {
+    "gamma_base_url": "https://gamma-api.polymarket.com",
+    "clob_base_url": "https://clob.polymarket.com",
+    "live_ws_url": "wss://ws-live-data.polymarket.com",
+    "clob_ws_url": "wss://ws-subscriptions-clob.polymarket.com/ws/market",
+    "max_book_age_s": 15,
+    "series_id": "10192",
+    "series_slug": "btc-up-or-down-15m",
+    "auto_select_latest": true,
+    "up_label": "Up",
+    "down_label": "Down"
+  },
+  "trading": {
+    "symbol": "BTCUSDT",
+    "binance_base_url": "https://api.binance.com",
+    "candle_window_minutes": 15,
+    "poll_interval_ms": 1000,
+    "risk_type": "percent",
+    "risk_value": 10
+  },
+  "ev": {
+    "ev_threshold": 0.04,
+    "min_prob": 0.55,
+    "min_book_liquidity_usd": 20,
+    "min_seconds_left": 30
+  },
+  "settlement": {
+    "authoritative_settle_wait_s": 90
+  },
+  "flip": {
+    "enabled": false,
+    "min_conviction": 0.65,
+    "min_minutes_left": 4
+  },
+  "chainlink": {
+    "polygon_rpc_url": "https://polygon.drpc.org",
+    "polygon_wss_url": "wss://polygon-bor-rpc.publicnode.com",
+    "btc_usd_aggregator": "0xc907E116054Ad103354f2D350FD2514433D57F6f",
+    "alchemy_api_key": "DfkvQ854X-Kg4-ytU2sG0"
+  },
+  "indicators": {
+    "ema_15m_period": 20,
+    "rsi_period": 14,
+    "rsi_overbought": 80.0,
+    "rsi_oversold": 20.0
+  }
+}
