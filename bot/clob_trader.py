@@ -175,21 +175,8 @@ class ClobTrader:
         """(signature_type, address) candidates derived from the EOA, deposit-wallet
         (V2) first, then legacy proxy / safe, and previous active maker address."""
         out: List[Tuple[int, str]] = []
-        try:
-            from polymarket_apis.clients.clob_client import PolymarketClobClient
-            from eth_account import Account
-            eoa = Account.from_key(settings.PRIVATE_KEY).address
-            c = PolymarketClobClient(private_key=settings.PRIVATE_KEY, address=eoa, chain_id=137, signature_type=0)
-            c.set_api_creds(self._derive_creds())
-            trades = c.get_trades()
-            if trades:
-                first = trades[0]
-                m_addr = getattr(first, "maker_address", None) or (first.get("maker_address") if isinstance(first, dict) else None)
-                if m_addr:
-                    out.append((3, m_addr))
-        except Exception:
-            pass
 
+        # 1. Local create2 derivation (deposit wallet V2, proxy, safe) — instantaneous (<10ms)
         for st, getter in (
             (3, gasless.get_expected_deposit_wallet),
             (1, gasless.get_poly_proxy_wallet_address),
@@ -201,6 +188,24 @@ class ClobTrader:
                     out.append((st, addr))
             except Exception:
                 pass
+
+        # 2. Check previous active maker address if creds are already cached
+        if self._api_creds:
+            try:
+                from polymarket_apis.clients.clob_client import PolymarketClobClient
+                from eth_account import Account
+                eoa = Account.from_key(settings.PRIVATE_KEY).address
+                c = PolymarketClobClient(private_key=settings.PRIVATE_KEY, address=eoa, chain_id=137, signature_type=0)
+                c.set_api_creds(self._api_creds)
+                trades = c.get_trades()
+                if trades:
+                    first = trades[0]
+                    m_addr = getattr(first, "maker_address", None) or (first.get("maker_address") if isinstance(first, dict) else None)
+                    if m_addr and not any(a.lower() == m_addr.lower() for _, a in out):
+                        out.append((3, m_addr))
+            except Exception:
+                pass
+
         return out
 
     def _pick_funded_wallet(self, gasless) -> Tuple[int, str]:
@@ -520,27 +525,15 @@ class ClobTrader:
                 except Exception:
                     bal = None
                 wallets.append({"signature_type": st, "address": addr, "pusd_balance": bal})
-            sig_type, funder = self._pick_funded_wallet(probe)
-
-            # Query CLOB API directly for true tradeable balance
-            clob_bal = None
-            try:
-                from polymarket_apis.clients.clob_client import PolymarketClobClient
-                c = PolymarketClobClient(
-                    private_key=settings.PRIVATE_KEY,
-                    address=funder,
-                    chain_id=137,
-                    signature_type=sig_type
-                )
-                c.set_api_creds(c.create_or_derive_api_creds())
-                clob_bal = float(c.get_pusd_balance())
-            except Exception:
-                pass
-
-            if clob_bal is not None and clob_bal > 0:
-                for w in wallets:
-                    if w["signature_type"] == sig_type:
-                        w["pusd_balance"] = clob_bal
+            funded = [w for w in wallets if (w.get("pusd_balance") or 0) > 0]
+            if funded:
+                sig_type, funder = funded[0]["signature_type"], funded[0]["address"]
+            else:
+                sig_type = 3
+                try:
+                    funder = probe.get_expected_deposit_wallet()
+                except Exception:
+                    funder = eoa
 
             return {
                 "ok": True,

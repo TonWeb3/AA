@@ -364,10 +364,32 @@ async def test_connection(body: Optional[Dict[str, Any]] = None):
             log_message(f"Connection OK — EOA {result.get('eoa')}, trading from "
                         f"{result.get('funder')} (sig type {result.get('chosen_signature_type')})")
         else:
-            log_message(f"Connection test failed: {result.get('error')}")
-        return result
+            log_message(f"Connection test: {result.get('error')}")
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        result = {"ok": False, "error": str(e)}
+
+    # Always guarantee EOA address resolution if key is present
+    eoa_addr = result.get("eoa") or (clob_trader.get_eoa_address() if clob_trader else None)
+    if not eoa_addr and settings.PRIVATE_KEY:
+        try:
+            from eth_account import Account
+            eoa_addr = Account.from_key(settings.PRIVATE_KEY).address
+            result["eoa"] = eoa_addr
+        except Exception:
+            pass
+
+    # Resolve withdrawal destination details
+    withdraw_addr = (body.get("withdraw_address") or settings.WITHDRAW_ADDRESS or "").strip()
+    is_blank = not bool(withdraw_addr)
+    dest = eoa_addr if is_blank else withdraw_addr
+
+    result["withdraw_address"] = withdraw_addr
+    result["withdraw_destination"] = dest
+    result["withdraw_is_eoa"] = is_blank
+    result["withdraw_enabled"] = bool(body.get("withdraw_enabled") if body.get("withdraw_enabled") is not None else settings.AUTO_WITHDRAW_ENABLED)
+    result["withdraw_trigger"] = float(body.get("withdraw_trigger") or settings.WITHDRAW_TRIGGER_BALANCE)
+    result["withdraw_amount"] = float(body.get("withdraw_amount") or settings.WITHDRAW_AMOUNT)
+    return result
 
 @router.post("/api/enable-auto-redeem")
 async def enable_auto_redeem(body: Optional[Dict[str, Any]] = None):
@@ -379,6 +401,12 @@ async def enable_auto_redeem(body: Optional[Dict[str, Any]] = None):
             settings.PRIVATE_KEY = normalize_private_key(pk)
         except Exception:
             pass
+    rk = body.get("relayer_api_key")
+    if rk and "..." not in rk:
+        settings.RELAYER_API_KEY = rk
+    ak = body.get("alchemy_api_key")
+    if ak and "..." not in ak:
+        settings.ALCHEMY_API_KEY = ak
     clob_trader.reset()
     try:
         result = await asyncio.to_thread(clob_trader.enable_auto_redeem)
